@@ -1,0 +1,257 @@
+{
+  "scenarios": [
+    {
+      "name": "store mapping, ACL, deleted and unpublished products",
+      "dataset": {
+        "stores": [{"id": 1, "current": true}, {"id": 2}],
+        "roles": [{"id": 2, "systemName": "Registered"}, {"id": 3, "systemName": "Guests"}],
+        "languages": [{"id": 1, "name": "English", "culture": "en-US", "default": true, "published": true}],
+        "tags": [
+          {"id": 101, "name": "books", "seName": "books", "localized": []},
+          {"id": 102, "name": "computers", "seName": "computers", "localized": []},
+          {"id": 103, "name": "jewelry", "seName": "jewelry", "localized": []},
+          {"id": 104, "name": "outdoor", "seName": "outdoor", "localized": []}
+        ],
+        "products": [
+          {"id": 201, "published": true, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [101, 102]},
+          {"id": 202, "published": true, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": true, "aclRoleIds": [2], "tagIds": [102, 103]},
+          {"id": 203, "published": true, "deleted": false, "limitedToStores": true, "limitedToStoreIds": [2], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [101, 103]},
+          {"id": 204, "published": true, "deleted": false, "limitedToStores": true, "limitedToStoreIds": [1], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [103]},
+          {"id": 205, "published": true, "deleted": true, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [101, 104]},
+          {"id": 206, "published": false, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [102, 104]}
+        ]
+      },
+      "cases": [
+        {
+          "name": "guest misses the role-limited product, the other store's product, and deleted or unpublished products",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 0},
+          "expected": [
+            {"id": 101, "name": "books", "seName": "books", "productCount": 1},
+            {"id": 102, "name": "computers", "seName": "computers", "productCount": 1},
+            {"id": 103, "name": "jewelry", "seName": "jewelry", "productCount": 1}
+          ]
+        },
+        {
+          "name": "registered customer sees the role-limited product",
+          "request": {"storeId": 1, "roleIds": [2], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 0},
+          "expected": [
+            {"id": 101, "name": "books", "seName": "books", "productCount": 1},
+            {"id": 102, "name": "computers", "seName": "computers", "productCount": 2},
+            {"id": 103, "name": "jewelry", "seName": "jewelry", "productCount": 2}
+          ]
+        },
+        {
+          "name": "ignoreAcl shows the role-limited product to a guest",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": true, "languageId": 1, "culture": "en-US", "limit": 0},
+          "expected": [
+            {"id": 101, "name": "books", "seName": "books", "productCount": 1},
+            {"id": 102, "name": "computers", "seName": "computers", "productCount": 2},
+            {"id": 103, "name": "jewelry", "seName": "jewelry", "productCount": 2}
+          ]
+        },
+        {
+          "name": "storeId 0 skips the store filter but keeps ACL",
+          "request": {"storeId": 0, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 0},
+          "expected": [
+            {"id": 101, "name": "books", "seName": "books", "productCount": 2},
+            {"id": 102, "name": "computers", "seName": "computers", "productCount": 1},
+            {"id": 103, "name": "jewelry", "seName": "jewelry", "productCount": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "second published language",
+      "dataset": {
+        "stores": [{"id": 1, "current": true}],
+        "roles": [{"id": 3, "systemName": "Guests"}],
+        "languages": [
+          {"id": 1, "name": "English", "culture": "en-US", "default": true, "published": true},
+          {"id": 2, "name": "French", "culture": "fr-FR", "default": false, "published": true}
+        ],
+        "tags": [
+          {"id": 111, "name": "shoes", "seName": "shoes", "localized": [{"languageId": 2, "name": "chaussures", "seName": "chaussures"}]},
+          {"id": 112, "name": "hats", "seName": "hats", "localized": []},
+          {"id": 113, "name": "bags", "seName": "bags", "localized": [{"languageId": 2, "name": "sacs"}]}
+        ],
+        "products": [
+          {"id": 211, "published": true, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [111, 112, 113]}
+        ]
+      },
+      "cases": [
+        {
+          "name": "French returns the localized name and slug, falls back per field, and sorts by the localized name",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 2, "culture": "fr-FR", "limit": 0},
+          "expected": [
+            {"id": 111, "name": "chaussures", "seName": "chaussures", "productCount": 1},
+            {"id": 112, "name": "hats", "seName": "hats", "productCount": 1},
+            {"id": 113, "name": "sacs", "seName": "bags", "productCount": 1}
+          ]
+        },
+        {
+          "name": "English with two published languages uses the default names and slugs",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 0},
+          "expected": [
+            {"id": 113, "name": "bags", "seName": "bags", "productCount": 1},
+            {"id": 112, "name": "hats", "seName": "hats", "productCount": 1},
+            {"id": 111, "name": "shoes", "seName": "shoes", "productCount": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "counts, limit and name order",
+      "dataset": {
+        "stores": [{"id": 1, "current": true}],
+        "roles": [{"id": 3, "systemName": "Guests"}],
+        "languages": [{"id": 1, "name": "English", "culture": "en-US", "default": true, "published": true}],
+        "tags": [
+          {"id": 301, "name": "delta", "seName": "delta", "localized": []},
+          {"id": 302, "name": "echo", "seName": "echo", "localized": []},
+          {"id": 303, "name": "charlie", "seName": "charlie", "localized": []},
+          {"id": 304, "name": "bravo", "seName": "bravo", "localized": []},
+          {"id": 305, "name": "alpha", "seName": "alpha", "localized": []}
+        ],
+        "products": [
+          {"id": 401, "published": true, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [301, 302, 303]},
+          {"id": 402, "published": true, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [301, 303, 304]},
+          {"id": 403, "published": true, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [301, 304, 305]}
+        ]
+      },
+      "cases": [
+        {
+          "name": "equal counts sort by name and the final order is by name only",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 0},
+          "expected": [
+            {"id": 305, "name": "alpha", "seName": "alpha", "productCount": 1},
+            {"id": 304, "name": "bravo", "seName": "bravo", "productCount": 2},
+            {"id": 303, "name": "charlie", "seName": "charlie", "productCount": 2},
+            {"id": 301, "name": "delta", "seName": "delta", "productCount": 3},
+            {"id": 302, "name": "echo", "seName": "echo", "productCount": 1}
+          ]
+        },
+        {
+          "name": "limit 1 keeps the most used tag",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 1},
+          "expected": [
+            {"id": 301, "name": "delta", "seName": "delta", "productCount": 3}
+          ]
+        },
+        {
+          "name": "limit 2 breaks the cutoff tie by lower tag id, then sorts by name",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 2},
+          "expected": [
+            {"id": 303, "name": "charlie", "seName": "charlie", "productCount": 2},
+            {"id": 301, "name": "delta", "seName": "delta", "productCount": 3}
+          ]
+        },
+        {
+          "name": "limit 4 breaks the cutoff tie by lower tag id, then sorts by name",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 4},
+          "expected": [
+            {"id": 304, "name": "bravo", "seName": "bravo", "productCount": 2},
+            {"id": 303, "name": "charlie", "seName": "charlie", "productCount": 2},
+            {"id": 301, "name": "delta", "seName": "delta", "productCount": 3},
+            {"id": 302, "name": "echo", "seName": "echo", "productCount": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "culture-aware name order",
+      "dataset": {
+        "stores": [{"id": 1, "current": true}],
+        "roles": [{"id": 3, "systemName": "Guests"}],
+        "languages": [{"id": 1, "name": "English", "culture": "en-US", "default": true, "published": true}],
+        "tags": [
+          {"id": 121, "name": "Banana", "seName": "banana", "localized": []},
+          {"id": 122, "name": "cherry", "seName": "cherry", "localized": []},
+          {"id": 123, "name": "apple", "seName": "apple", "localized": []},
+          {"id": 124, "name": "éclair", "seName": "eclair", "localized": []},
+          {"id": 125, "name": "fig", "seName": "fig", "localized": []}
+        ],
+        "products": [
+          {"id": 221, "published": true, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [121, 122, 123, 124, 125]}
+        ]
+      },
+      "cases": [
+        {
+          "name": "en-US sorts mixed case and accented names by culture, not ordinal",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 0},
+          "expected": [
+            {"id": 123, "name": "apple", "seName": "apple", "productCount": 1},
+            {"id": 121, "name": "Banana", "seName": "banana", "productCount": 1},
+            {"id": 122, "name": "cherry", "seName": "cherry", "productCount": 1},
+            {"id": 124, "name": "éclair", "seName": "eclair", "productCount": 1},
+            {"id": 125, "name": "fig", "seName": "fig", "productCount": 1}
+          ]
+        },
+        {
+          "name": "empty culture sorts with the invariant collation",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "", "limit": 0},
+          "expected": [
+            {"id": 123, "name": "apple", "seName": "apple", "productCount": 1},
+            {"id": 121, "name": "Banana", "seName": "banana", "productCount": 1},
+            {"id": 122, "name": "cherry", "seName": "cherry", "productCount": 1},
+            {"id": 124, "name": "éclair", "seName": "eclair", "productCount": 1},
+            {"id": 125, "name": "fig", "seName": "fig", "productCount": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "single published language",
+      "dataset": {
+        "stores": [{"id": 1, "current": true}],
+        "roles": [{"id": 3, "systemName": "Guests"}],
+        "languages": [
+          {"id": 1, "name": "English", "culture": "en-US", "default": true, "published": true},
+          {"id": 2, "name": "French", "culture": "fr-FR", "default": false, "published": false}
+        ],
+        "tags": [
+          {"id": 131, "name": "garden", "seName": "garden", "localized": [{"languageId": 1, "name": "yard", "seName": "yard"}, {"languageId": 2, "name": "jardin", "seName": "jardin"}]},
+          {"id": 132, "name": "kitchen", "seName": "kitchen", "localized": []}
+        ],
+        "products": [
+          {"id": 231, "published": true, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [131, 132]}
+        ]
+      },
+      "cases": [
+        {
+          "name": "only one published language ignores localized names and slugs",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 0},
+          "expected": [
+            {"id": 131, "name": "garden", "seName": "garden", "productCount": 1},
+            {"id": 132, "name": "kitchen", "seName": "kitchen", "productCount": 1}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "no product ACL or store mapping rows",
+      "dataset": {
+        "stores": [{"id": 1, "current": true}],
+        "roles": [{"id": 3, "systemName": "Guests"}],
+        "languages": [{"id": 1, "name": "English", "culture": "en-US", "default": true, "published": true}],
+        "tags": [
+          {"id": 141, "name": "music", "seName": "music", "localized": []},
+          {"id": 142, "name": "games", "seName": "games", "localized": []}
+        ],
+        "products": [
+          {"id": 241, "published": true, "deleted": false, "limitedToStores": true, "limitedToStoreIds": [], "subjectToAcl": true, "aclRoleIds": [], "tagIds": [141]},
+          {"id": 242, "published": true, "deleted": false, "limitedToStores": false, "limitedToStoreIds": [], "subjectToAcl": false, "aclRoleIds": [], "tagIds": [141, 142]}
+        ]
+      },
+      "cases": [
+        {
+          "name": "a product with SubjectToAcl and LimitedToStores still counts when no product has ACL or store rows",
+          "request": {"storeId": 1, "roleIds": [3], "ignoreAcl": false, "languageId": 1, "culture": "en-US", "limit": 0},
+          "expected": [
+            {"id": 142, "name": "games", "seName": "games", "productCount": 1},
+            {"id": 141, "name": "music", "seName": "music", "productCount": 2}
+          ]
+        }
+      ]
+    }
+  ]
+}
