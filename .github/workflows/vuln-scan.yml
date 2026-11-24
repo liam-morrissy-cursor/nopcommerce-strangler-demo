@@ -1,0 +1,76 @@
+name: Vulnerability scan
+
+on:
+  pull_request:
+    branches: [ "main", "develop" ]
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vuln-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scanner dependencies
+        run: pip install -r tools/vuln-scan/requirements.txt
+
+      - name: Scanner unit tests
+        run: python -m unittest discover -s tools/vuln-scan/tests
+
+      - name: Semgrep rule tests
+        run: semgrep --test tools/vuln-scan/rules --metrics=off
+
+      - name: Run scan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python tools/vuln-scan/scan.py --output scan-results.json --summary scan-summary.md
+
+      - name: Job summary
+        if: always()
+        run: test -f scan-summary.md && cat scan-summary.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuln-scan-results
+          path: |
+            scan-results.json
+            scan-summary.md
+          if-no-files-found: ignore
+
+      - name: Post top finding to Slack
+        if: github.event_name != 'pull_request'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: ${{ vars.SLACK_CHANNEL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ] || [ -z "$SLACK_CHANNEL" ]; then
+            echo "SLACK_WEBHOOK_URL secret or SLACK_CHANNEL variable not configured; skipping Slack post."
+            exit 0
+          fi
+          python tools/vuln-scan/post_slack.py scan-results.json
+
+      - name: Fail on high or critical findings
+        if: github.event_name == 'pull_request'
+        run: python tools/vuln-scan/gate.py scan-results.json --fail-on high
