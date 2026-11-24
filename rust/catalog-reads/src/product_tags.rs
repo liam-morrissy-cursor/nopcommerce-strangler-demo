@@ -16,14 +16,13 @@ pub struct ProductTagItem {
     pub product_count: i64,
 }
 
-/// Which customer roles the ACL filter checks. `Roles` is never empty.
+/// `Roles` is never empty.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Acl {
     Ignore,
     Roles(Vec<i32>),
 }
 
-/// A validated `GET /api/catalog/product-tags` request.
 #[derive(Debug, Clone)]
 pub struct ProductTagsRequest {
     /// `0` means no store restriction.
@@ -31,13 +30,12 @@ pub struct ProductTagsRequest {
     pub acl: Acl,
     pub language_id: i32,
     pub culture: Locale,
-    /// `None` means all tags.
     pub limit: Option<usize>,
 }
 
 impl ProductTagsRequest {
-    /// Parses query parameters. Fails closed: a missing or malformed required parameter, or
-    /// no role ids without `ignoreAcl=true`, is an error rather than "no filter".
+    /// Fails closed: a missing or malformed required parameter, or no role ids without
+    /// `ignoreAcl=true`, is an error rather than "no filter".
     pub fn from_query(params: &HashMap<String, String>) -> Result<Self, String> {
         let store_id = non_negative(params, "storeId")?;
         let language_id = non_negative(params, "languageId")?;
@@ -97,23 +95,19 @@ struct TagCountRow {
     default_slug: Option<String>,
 }
 
-/// Mirrors `CatalogModelFactory.PreparePopularProductTagsModelAsync`: count visible products per tag,
-/// keep the top `limit` by count (ties by lower tag id), localize, then sort by name for the culture.
+/// Mirrors `CatalogModelFactory.PreparePopularProductTagsModelAsync`. Both sides break count ties
+/// by lower tag id so that `limit` keeps the same tags.
 pub async fn read_product_tags(pool: &AnyPool, request: &ProductTagsRequest) -> Result<Vec<ProductTagItem>, Box<dyn Error + Send + Sync>> {
     let published_languages: i64 = sqlx::query_scalar(r#"SELECT COUNT(*) FROM "Language" WHERE "Published""#)
         .fetch_one(pool)
         .await?;
+    // nopCommerce reads localized names and slugs only when two or more languages are published.
     let localize = request.language_id > 0 && published_languages >= 2;
 
-    let sql = counts_sql(request);
-    let mut query = sqlx::query_as::<_, TagCountRow>(&sql).bind(request.language_id);
-    if request.store_id > 0 {
-        query = query.bind(request.store_id);
-    }
-    if let Acl::Roles(role_ids) = &request.acl {
-        for role_id in role_ids {
-            query = query.bind(*role_id);
-        }
+    let (sql, binds) = counts_query(request);
+    let mut query = sqlx::query_as::<_, TagCountRow>(&sql);
+    for bind in binds {
+        query = query.bind(bind);
     }
     let mut rows = query.fetch_all(pool).await?;
 
@@ -141,8 +135,8 @@ pub async fn read_product_tags(pool: &AnyPool, request: &ProductTagsRequest) -> 
     Ok(items)
 }
 
-/// One query text for PostgreSQL and SQLite. Bind order: language id, store id (when > 0), role ids.
-fn counts_sql(request: &ProductTagsRequest) -> String {
+/// One query text for PostgreSQL and SQLite, with its bind values in placeholder order.
+fn counts_query(request: &ProductTagsRequest) -> (String, Vec<i32>) {
     let mut sql = String::from(
         r#"SELECT CAST(pt."Id" AS BIGINT) AS id,
        CAST(pt."Name" AS TEXT) AS name,
@@ -164,22 +158,29 @@ JOIN "Product_ProductTag_Mapping" ptm ON ptm."ProductTag_Id" = pt."Id"
 JOIN "Product" p ON p."Id" = ptm."Product_Id"
 WHERE NOT p."Deleted" AND p."Published""#,
     );
-    let mut next_param = 2;
+    let mut binds = vec![request.language_id];
 
+    // Like `StoreMappingService.ApplyStoreMapping` and `AclService.ApplyAcl`, each filter is
+    // skipped while no product has a row in its mapping table.
     if request.store_id > 0 {
+        binds.push(request.store_id);
+        let store = binds.len();
         sql.push_str(&format!(
             r#"
   AND (NOT EXISTS (SELECT 1 FROM "StoreMapping" WHERE "EntityName" = 'Product')
        OR NOT p."LimitedToStores"
        OR EXISTS (SELECT 1 FROM "StoreMapping" sm
-                   WHERE sm."EntityName" = 'Product' AND sm."EntityId" = p."Id" AND sm."StoreId" = ${next_param}))"#
+                   WHERE sm."EntityName" = 'Product' AND sm."EntityId" = p."Id" AND sm."StoreId" = ${store}))"#
         ));
-        next_param += 1;
     }
 
     if let Acl::Roles(role_ids) = &request.acl {
-        let placeholders = (next_param..next_param + role_ids.len())
-            .map(|n| format!("${n}"))
+        let placeholders = role_ids
+            .iter()
+            .map(|role_id| {
+                binds.push(*role_id);
+                format!("${}", binds.len())
+            })
             .collect::<Vec<_>>()
             .join(", ");
         sql.push_str(&format!(
@@ -196,5 +197,5 @@ WHERE NOT p."Deleted" AND p."Published""#,
 GROUP BY pt."Id", pt."Name"
 ORDER BY product_count DESC, id ASC"#,
     );
-    sql
+    (sql, binds)
 }
