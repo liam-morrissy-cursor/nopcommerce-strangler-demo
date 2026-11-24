@@ -386,7 +386,8 @@ public class ProductTagReadContractTests : WebTest
 
     private async Task<TEntity> InsertAsync<TEntity>(TEntity entity) where TEntity : BaseEntity
     {
-        await _dataProvider.InsertEntityAsync(entity);
+        await GetService<IRepository<TEntity>>().InsertAsync(entity);
+        //repositories only mark soft-deletable entities as deleted, cleanup removes the rows
         _cleanupAfterTest.Add(() => _dataProvider.DeleteEntityAsync(entity));
 
         return entity;
