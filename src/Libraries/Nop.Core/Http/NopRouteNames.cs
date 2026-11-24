@@ -698,6 +698,11 @@ public static partial class NopRouteNames
         public const string GET_TAG_PRODUCTS = "GetTagProducts";
 
         /// <summary>
+        /// Gets the product tags API route name
+        /// </summary>
+        public const string GET_PRODUCT_TAGS = "GetProductTags";
+
+        /// <summary>
         /// Gets the search products route name
         /// </summary>
         public const string SEARCH_PRODUCTS = "SearchProducts";

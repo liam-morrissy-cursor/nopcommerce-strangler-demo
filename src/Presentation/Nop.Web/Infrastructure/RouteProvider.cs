@@ -582,6 +582,10 @@ public partial class RouteProvider : BaseRouteProvider, IRouteProvider
             pattern: $"tag/products",
             defaults: new { controller = "Catalog", action = "GetTagProducts" });
 
+        endpointRouteBuilder.MapControllerRoute(name: NopRouteNames.Ajax.GET_PRODUCT_TAGS,
+            pattern: "api/catalog/product-tags",
+            defaults: new { controller = "Catalog", action = "GetProductTags" });
+
         endpointRouteBuilder.MapControllerRoute(name: NopRouteNames.Ajax.SEARCH_PRODUCTS,
             pattern: "product/search",
             defaults: new { controller = "Catalog", action = "SearchProducts" });

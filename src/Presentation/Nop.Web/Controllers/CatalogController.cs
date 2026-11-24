@@ -15,6 +15,7 @@ using Nop.Services.Logging;
 using Nop.Services.Security;
 using Nop.Services.Stores;
 using Nop.Services.Vendors;
+using Nop.Web.CatalogReads;
 using Nop.Web.Factories;
 using Nop.Web.Framework;
 using Nop.Web.Framework.Mvc;
@@ -43,6 +44,7 @@ public partial class CatalogController : BasePublicController
     protected readonly IPermissionService _permissionService;
     protected readonly IProductModelFactory _productModelFactory;
     protected readonly IProductService _productService;
+    protected readonly IProductTagReadContract _productTagReadContract;
     protected readonly IProductTagService _productTagService;
     protected readonly ISearchTermService _searchTermService;
     protected readonly IStoreContext _storeContext;
@@ -72,6 +74,7 @@ public partial class CatalogController : BasePublicController
         IPermissionService permissionService,
         IProductModelFactory productModelFactory,
         IProductService productService,
+        IProductTagReadContract productTagReadContract,
         IProductTagService productTagService,
         ISearchTermService searchTermService,
         IStoreContext storeContext,
@@ -97,6 +100,7 @@ public partial class CatalogController : BasePublicController
         _permissionService = permissionService;
         _productModelFactory = productModelFactory;
         _productService = productService;
+        _productTagReadContract = productTagReadContract;
         _productTagService = productTagService;
         _searchTermService = searchTermService;
         _storeContext = storeContext;
@@ -285,9 +289,26 @@ public partial class CatalogController : BasePublicController
 
     public virtual async Task<IActionResult> ProductTagsAll()
     {
-        var model = await _catalogModelFactory.PreparePopularProductTagsModelAsync();
+        var result = await _productTagReadContract.GetProductTagsAsync();
+        var model = new PopularProductTagsModel
+        {
+            TotalTags = result.Items.Count,
+            Tags = result.Items
+                .Select(item => new ProductTagModel { Id = item.Id, Name = item.Name, SeName = item.SeName, ProductCount = item.ProductCount })
+                .ToList()
+        };
 
         return View(model);
+    }
+
+    [HttpGet]
+    [CheckLanguageSeoCode(ignore: true)]
+    public virtual async Task<IActionResult> GetProductTags(int limit = 0)
+    {
+        var result = await _productTagReadContract.GetProductTagsAsync(limit);
+        Response.Headers["X-Catalog-Reads-Backend"] = result.Backend.ToString().ToLowerInvariant();
+
+        return Json(result.Items);
     }
 
     #endregion
