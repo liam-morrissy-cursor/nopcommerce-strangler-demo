@@ -128,7 +128,6 @@ fn fixture() -> Fixture {
     serde_json::from_str(FIXTURE).expect("fixture parses")
 }
 
-/// A SQLite file under the temp directory, removed on drop.
 struct TempDatabase {
     path: PathBuf,
 }

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Checks the product tag read contract on both sides of the wire with the shared fixture.
 set -euo pipefail
 
 crate_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
