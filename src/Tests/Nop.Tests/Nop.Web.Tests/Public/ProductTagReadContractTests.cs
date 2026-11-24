@@ -489,7 +489,8 @@ public class ProductTagReadContractTests : WebTest
                 var directory = new DirectoryInfo(AppContext.BaseDirectory);
                 while (directory != null && !Directory.Exists(Path.Combine(directory.FullName, "rust", "catalog-reads")))
                     directory = directory.Parent;
-                binaryPath = directory == null ? "rust/catalog-reads/target/debug/catalog-reads" : Path.Combine(directory.FullName, "rust", "catalog-reads", "target", "debug", "catalog-reads");
+                var binaryName = OperatingSystem.IsWindows() ? "catalog-reads.exe" : "catalog-reads";
+                binaryPath = Path.Combine(directory?.FullName ?? string.Empty, "rust", "catalog-reads", "target", "debug", binaryName);
             }
 
             if (!File.Exists(binaryPath))
@@ -566,7 +567,8 @@ public class ProductTagReadContractTests : WebTest
         public StubUpstream(string body)
         {
             _body = body;
-            BaseUri = $"http://127.0.0.1:{UnusedPort()}/";
+            //Windows lets a non-elevated process listen on localhost only
+            BaseUri = $"http://localhost:{UnusedPort()}/";
             _listener.Prefixes.Add(BaseUri);
             _listener.Start();
             _ = ServeAsync();
