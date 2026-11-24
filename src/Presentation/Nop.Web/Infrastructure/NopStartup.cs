@@ -1,6 +1,7 @@
 ﻿using Nop.Core.Infrastructure;
 using Nop.Web.Areas.Admin.Factories;
 using Nop.Web.Areas.Admin.Helpers;
+using Nop.Web.CatalogReads;
 using Nop.Web.Framework.Factories;
 using Nop.Web.Infrastructure.Installation;
 
@@ -113,6 +114,10 @@ public partial class NopStartup : INopStartup
 
         //helpers classes
         services.AddScoped<ISummernoteHelper, SummernoteHelper>();
+
+        //catalog reads
+        services.AddHttpClient<CatalogReadsHttpClient>();
+        services.AddScoped<IProductTagReadContract, ProductTagReadContract>();
     }
 
     /// <summary>

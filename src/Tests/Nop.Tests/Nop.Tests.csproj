@@ -29,6 +29,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\..\..\rust\catalog-reads\fixtures\product_tags.json" Link="fixtures\product_tags.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Update="Connections.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Connections.Designer.cs</LastGenOutput>

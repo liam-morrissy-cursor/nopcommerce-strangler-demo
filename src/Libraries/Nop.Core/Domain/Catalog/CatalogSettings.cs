@@ -620,4 +620,14 @@ public partial class CatalogSettings : ISettings
     /// Gets or sets a number of reviews per page on vendor reviews page
     /// </summary>
     public int VendorProductReviewsPageSize { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether product tag counts are read from the catalog reads service
+    /// </summary>
+    public bool ProductTagsRust { get; set; }
+
+    /// <summary>
+    /// Gets or sets the base URL of the catalog reads service (e.g. http://127.0.0.1:5080)
+    /// </summary>
+    public string CatalogReadsServiceUrl { get; set; }
 }
