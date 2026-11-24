@@ -1356,7 +1356,7 @@ public partial class CatalogModelFactory : ICatalogModelFactory
 
         model.Tags.AddRange(await tagStats
             //Take the most popular tags if specified
-            .OrderByDescending(x => x.Value).Take(numberTagsToReturn > 0 ? numberTagsToReturn : tagStats.Count)
+            .OrderByDescending(x => x.Value).ThenBy(x => x.Key).Take(numberTagsToReturn > 0 ? numberTagsToReturn : tagStats.Count)
             .SelectAwait(async tagStat =>
             {
                 var tag = await _productTagService.GetProductTagByIdAsync(tagStat.Key);
