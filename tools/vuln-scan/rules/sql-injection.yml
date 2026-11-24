@@ -1,0 +1,111 @@
+rules:
+  - id: sql-from-request-input
+    languages: [csharp]
+    severity: ERROR
+    message: >-
+      Request input flows into a raw SQL string. Pass it as a query parameter instead.
+    metadata:
+      title: SQL query built from HTTP request input
+      vulnscan_severity: high
+      cwe: "CWE-89"
+      why: Request input concatenated into SQL lets an attacker change the query and read or modify data.
+      fix_hint: Use a parameterized query (DataParameter / SqlParameter / @param placeholders) or LINQ instead of building the SQL string.
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-inside: |
+              class $CTRL : $BASE { ... }
+          - metavariable-regex:
+              metavariable: $CTRL
+              regex: .*Controller$
+          - pattern-inside: |
+              public $RET $ACTION(..., $TYPE $PARAM, ...) { ... }
+          - metavariable-regex:
+              metavariable: $TYPE
+              regex: ^string$
+          - pattern: $PARAM
+      - pattern: Request.Query[...]
+      - pattern: Request.Form[...]
+      - pattern: Request.Headers[...]
+      - pattern: Request.Cookies[...]
+      - pattern: HttpContext.Request.Query[...]
+      - pattern: HttpContext.Request.Form[...]
+    pattern-sanitizers:
+      - pattern: int.Parse(...)
+      - pattern: long.Parse(...)
+      - pattern: Guid.Parse(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern: new $CMD($SQL, ...)
+                  - metavariable-regex:
+                      metavariable: $CMD
+                      regex: ^(Sql|Npgsql|MySql|Sqlite|SQLite|Odbc|OleDb)Command$
+              - pattern: $C.CommandText = $SQL;
+              - patterns:
+                  - pattern-either:
+                      - pattern: $C.$METHOD($SQL, ...)
+                      - pattern: $C.$METHOD<$T>($SQL, ...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(ExecuteSqlRaw|ExecuteSqlRawAsync|FromSqlRaw|SqlQueryRaw|ExecuteNonQuery|ExecuteNonQueryAsync|ExecuteScalar|ExecuteScalarAsync|ExecuteReader|ExecuteReaderAsync|QueryProcAsync|QueryToList|QueryToListAsync|SetCommand)$
+              - patterns:
+                  # generic method names only count on a database-like receiver
+                  - pattern-either:
+                      - pattern: $C.$METHOD($SQL, ...)
+                      - pattern: $C.$METHOD<$T>($SQL, ...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(Execute|ExecuteAsync|Query|QueryAsync)$
+                  - metavariable-regex:
+                      metavariable: $C
+                      regex: '(?i)^(this\.)?_?\w*(db|connection|conn|dataprovider|dataconnection|context|command|cmd)$'
+          - focus-metavariable: $SQL
+
+  - id: sql-string-concatenation
+    languages: [csharp]
+    severity: WARNING
+    message: >-
+      Raw SQL is assembled with string concatenation, interpolation or string.Format.
+    metadata:
+      title: SQL command text built with string concatenation
+      vulnscan_severity: medium
+      cwe: "CWE-89"
+      why: SQL text built from variables becomes injectable as soon as any of those values is caller-controlled.
+      fix_hint: Move variable values into parameters (DataParameter / SqlParameter). If an identifier must be interpolated, validate it against an allowlist and quote it with the provider's identifier-quoting API.
+    paths:
+      exclude:
+        # Provider maintenance DDL (RESEED, VACUUM, OPTIMIZE) interpolates table and sequence
+        # names that come from mapped entity metadata; identifiers cannot be parameterized.
+        - "**/Nop.Data/DataProviders/**"
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern: new $CMD($SQL, ...)
+              - metavariable-regex:
+                  metavariable: $CMD
+                  regex: ^(Sql|Npgsql|MySql|Sqlite|SQLite|Odbc|OleDb)Command$
+          - pattern: $C.CommandText = $SQL;
+          - patterns:
+              - pattern-either:
+                  - pattern: $C.$METHOD($SQL, ...)
+                  - pattern: $C.$METHOD<$T>($SQL, ...)
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(ExecuteSqlRaw|ExecuteSqlRawAsync|FromSqlRaw|SqlQueryRaw|ExecuteNonQuery|ExecuteNonQueryAsync|ExecuteScalar|ExecuteScalarAsync|ExecuteReader|ExecuteReaderAsync|QueryProcAsync|QueryToList|QueryToListAsync|SetCommand)$
+          - patterns:
+              # generic method names only count on a database-like receiver
+              - pattern-either:
+                  - pattern: $C.$METHOD($SQL, ...)
+                  - pattern: $C.$METHOD<$T>($SQL, ...)
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(Execute|ExecuteAsync|Query|QueryAsync)$
+              - metavariable-regex:
+                  metavariable: $C
+                  regex: '(?i)^(this\.)?_?\w*(db|connection|conn|dataprovider|dataconnection|context|command|cmd)$'
+      - metavariable-regex:
+          metavariable: $SQL
+          # interpolated string with at least one hole, a literal joined with "+", or string.Format/Concat
+          regex: (?s)^(\$@?"[^"]*\{[^{]|@\$"[^"]*\{[^{]|@?".*"\s*\+|.*\+\s*@?"|string\.(Format|Concat)\s*\()

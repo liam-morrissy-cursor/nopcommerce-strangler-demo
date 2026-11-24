@@ -1,0 +1,49 @@
+rules:
+  - id: insecure-formatter-deserialization
+    languages: [csharp]
+    severity: ERROR
+    message: $TYPE can instantiate arbitrary types from its input.
+    metadata:
+      title: Insecure .NET formatter used for deserialization
+      vulnscan_severity: high
+      cwe: "CWE-502"
+      why: These formatters can instantiate arbitrary types from the payload, so untrusted input can lead to remote code execution.
+      fix_hint: Replace with System.Text.Json or XmlSerializer bound to concrete types; never deserialize untrusted data with BinaryFormatter-family formatters.
+    patterns:
+      - pattern-either:
+          - pattern: new $TYPE(...)
+          - pattern: new $NS.$TYPE(...)
+      - metavariable-regex:
+          metavariable: $TYPE
+          regex: ^(BinaryFormatter|SoapFormatter|NetDataContractSerializer|LosFormatter|ObjectStateFormatter)$
+
+  - id: newtonsoft-typenamehandling
+    languages: [csharp]
+    severity: ERROR
+    message: Json.NET TypeNameHandling.$MODE lets the payload choose which .NET type is created.
+    metadata:
+      title: Json.NET TypeNameHandling enables polymorphic deserialization
+      vulnscan_severity: high
+      cwe: "CWE-502"
+      why: With TypeNameHandling other than None, a crafted $type value can create dangerous gadget types and execute code.
+      fix_hint: Use TypeNameHandling.None, or keep it on only for trusted data with a strict ISerializationBinder that allowlists the expected types.
+    patterns:
+      - pattern-either:
+          - pattern: TypeNameHandling = TypeNameHandling.$MODE
+          - pattern: $X.TypeNameHandling = TypeNameHandling.$MODE
+          - pattern: $X.TypeNameHandling = Newtonsoft.Json.TypeNameHandling.$MODE
+      - metavariable-regex:
+          metavariable: $MODE
+          regex: ^(All|Auto|Objects|Arrays)$
+
+  - id: javascriptserializer-type-resolver
+    languages: [csharp]
+    severity: ERROR
+    message: JavaScriptSerializer with SimpleTypeResolver lets the payload choose which .NET type is created.
+    metadata:
+      title: JavaScriptSerializer configured with SimpleTypeResolver
+      vulnscan_severity: high
+      cwe: "CWE-502"
+      why: SimpleTypeResolver honours __type hints from the payload, which allows arbitrary type instantiation.
+      fix_hint: Remove the type resolver and deserialize into a concrete type with System.Text.Json.
+    pattern: new JavaScriptSerializer(new SimpleTypeResolver())
