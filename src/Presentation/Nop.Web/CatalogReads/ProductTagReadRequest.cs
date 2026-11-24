@@ -1,4 +1,4 @@
-namespace Nop.Web.CatalogReads;
+﻿namespace Nop.Web.CatalogReads;
 
 /// <summary>
 /// Represents the request scope the catalog reads service filters product tags by

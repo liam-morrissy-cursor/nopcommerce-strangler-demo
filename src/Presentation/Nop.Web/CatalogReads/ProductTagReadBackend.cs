@@ -1,4 +1,4 @@
-namespace Nop.Web.CatalogReads;
+﻿namespace Nop.Web.CatalogReads;
 
 /// <summary>
 /// Represents the reader that answered a product tag read

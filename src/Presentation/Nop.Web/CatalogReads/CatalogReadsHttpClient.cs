@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using Newtonsoft.Json;
 using Nop.Core;
 using Nop.Core.Domain.Catalog;
