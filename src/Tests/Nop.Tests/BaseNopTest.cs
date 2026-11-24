@@ -80,6 +80,7 @@ using Nop.Tests.Nop.Services.Tests.ScheduleTasks;
 using Nop.Tests.Nop.Services.Tests.Tax;
 using Nop.Tests.Nop.Web.Tests.Public.Factories;
 using Nop.Web.Areas.Admin.Factories;
+using Nop.Web.CatalogReads;
 using Nop.Web.Framework;
 using Nop.Web.Framework.Factories;
 using Nop.Web.Framework.Infrastructure.Extensions;
@@ -206,6 +207,9 @@ public partial class BaseNopTest
 
         //client to request artificial intelligence service
         services.AddHttpClient<ArtificialIntelligenceHttpClient>().WithProxy();
+
+        //client to request catalog reads service
+        services.AddHttpClient<CatalogReadsHttpClient>();
 
         var memoryCache = new MemoryCache(new MemoryCacheOptions());
         var typeFinder = new WebAppTypeFinder();
@@ -563,6 +567,9 @@ public partial class BaseNopTest
         services.AddTransient<Web.Factories.ISitemapModelFactory, Web.Factories.SitemapModelFactory>();
         services.AddTransient<Web.Factories.ITopicModelFactory, Web.Factories.TopicModelFactory>();
         services.AddTransient<Web.Factories.IVendorModelFactory, Web.Factories.VendorModelFactory>();
+
+        //catalog reads
+        services.AddTransient<IProductTagReadContract, ProductTagReadContract>();
 
         _serviceProvider = services.BuildServiceProvider();
 
